@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ATTENDEE
+  ORGANIZER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  phone         String?
+  name          String?
+  role          Role      @default(ATTENDEE)
+  passwordHash  String?
+  googleId      String?   @unique
+  approved      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+
+  events        Event[]
+  orders        Order[]
+  tickets       Ticket[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Event {
+  id          String    @id @default(cuid())
+  title       String
+  description String    @db.Text
+  date        DateTime
+  time        String
+  venue       String
+  category    String
+  image       String?
+  slug        String    @unique
+  organizerId String
+  createdAt   DateTime  @default(now())
+
+  organizer   User       @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  tiers       TicketTier[]
+  orders      Order[]
+  tickets     Ticket[]
+
+  @@index([organizerId])
+  @@index([slug])
+  @@index([category])
+  @@index([date])
+}
+
+model TicketTier {
+  id         String    @id @default(cuid())
+  name       String
+  price      Int
+  quantity   Int
+  sold       Int       @default(0)
+  salesStart DateTime?
+  salesEnd   DateTime?
+  eventId    String
+
+  event      Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  orders     Order[]
+  tickets    Ticket[]
+
+  @@index([eventId])
+}
+
+model Order {
+  id                    String      @id @default(cuid())
+  userId                String
+  ticketTierId          String
+  eventId               String
+  mpesaCheckoutRequestId String?
+  mpesaReceiptNumber    String?
+  amount                Int
+  status                OrderStatus @default(PENDING)
+  qrCodeToken           String?     @unique
+  checkedIn             Boolean     @default(false)
+  checkedInAt           DateTime?
+  createdAt             DateTime    @default(now())
+
+  user       User       @relation(fields: [userId], references: [id])
+  ticketTier TicketTier @relation(fields: [ticketTierId], references: [id])
+  event      Event      @relation(fields: [eventId], references: [id])
+  ticket     Ticket?
+
+  @@index([userId])
+  @@index([ticketTierId])
+  @@index([eventId])
+  @@index([status])
+  @@index([qrCodeToken])
+}
+
+model Ticket {
+  id          String    @id @default(cuid())
+  orderId     String    @unique
+  ticketTierId String
+  eventId     String
+  userId      String
+  qrCodeToken String    @unique
+  checkedIn   Boolean   @default(false)
+  checkedInAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  order       Order     @relation(fields: [orderId], references: [id])
+  ticketTier  TicketTier @relation(fields: [ticketTierId], references: [id])
+  event       Event     @relation(fields: [eventId], references: [id])
+  user        User      @relation(fields: [userId], references: [id])
+
+  @@index([orderId])
+  @@index([eventId])
+  @@index([userId])
+  @@index([qrCodeToken])
+}
