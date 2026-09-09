@@ -9,7 +9,7 @@ MVP event ticketing web app for the Kenyan market. Browse events, purchase ticke
 - **Backend**: Next.js API Routes
 - **Database**: PostgreSQL via Prisma ORM
 - **Auth**: NextAuth.js (Credentials + Google providers)
-- **Payments**: M-Pesa Daraja API (STK Push + webhook + polling)
+- **Payments**: FluxPay gateway (M-Pesa STK Push + signed webhook + polling)
 - **Email**: Resend / Nodemailer (PDF ticket delivery)
 - **QR Codes**: `qrcode` library (server-side generation)
 - **PDFs**: `@react-pdf/renderer` or `pdfkit`
@@ -25,7 +25,7 @@ MVP event ticketing web app for the Kenyan market. Browse events, purchase ticke
 
 - Node.js 18+
 - PostgreSQL database (local or managed, e.g., Supabase, Neon)
-- M-Pesa Daraja developer account (sandbox keys for dev)
+- FluxPay gateway account (API key + secret, webhook secret for dev)
 - Resend API key (for email delivery)
 
 ## Getting Started
@@ -49,7 +49,7 @@ npm run dev
 See `.env.example` for required variables:
 - Database connection (`DATABASE_URL`)
 - NextAuth secret and providers (`NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`)
-- M-Pesa Daraja (`MPESA_CONSUMER_KEY`, `MPESA_CONSUMER_SECRET`, `MPESA_SHORTCODE`, `MPESA_PASSKEY`)
+- FluxPay gateway (`FLUXPAY_API_KEY`, `FLUXPAY_API_SECRET`, `FLUXPAY_BASE_URL`, `FLUXPAY_WEBHOOK_SECRET`)
 - Email service (`RESEND_API_KEY`, `EMAIL_FROM`)
 
 ## Project Structure
@@ -98,9 +98,9 @@ public/               # Static assets and uploads
 ## Deployment
 
 - Deploy on Vercel or any Node.js host
-- Must expose public HTTPS URL for M-Pesa webhook
+- Must expose public HTTPS URL for the FluxPay webhook (`/api/mpesa/callback`; use ngrok or a tunnel for dev)
 - Database: Supabase Postgres, Neon, or any managed Postgres
-- Configure M-Pesa Daraja credentials in production environment
+- Configure FluxPay credentials in production environment (register the webhook via `npm run webhook:register`)
 
 ## License
 

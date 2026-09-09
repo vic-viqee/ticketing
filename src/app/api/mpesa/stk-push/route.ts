@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { initiatePayment } from "@/lib/fluxpay/sdk";
+import { formatFluxPhone, getFluxConfig } from "@/lib/fluxpay";
 
 const stkPushSchema = z.object({
   phone: z.string().min(10),
@@ -59,36 +61,54 @@ export async function POST(request: Request) {
       );
     }
 
-    const { initiateStkPush } = await import("@/lib/mpesa/stkpush");
-    const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/mpesa/callback`;
-
-    const result = await initiateStkPush({
-      phone: parsed.data.phone,
-      amount: tier.price,
-      accountReference: `EVENT-${tier.eventId}`,
-      transactionDesc: tier.name,
-      callbackUrl,
+    // Create/reuse the Order first so its id can be used as the idempotency
+    // key: if the network drops the response after FluxPay accepted the push,
+    // a retry reuses this order (same key) and cannot double-charge.
+    let order = await prisma.order.findFirst({
+      where: { userId: user.id, ticketTierId: tier.id, status: "PENDING" },
+      orderBy: { createdAt: "desc" },
     });
 
-    const order = await prisma.order.create({
+    order ??= await prisma.order.create({
       data: {
         userId: user.id,
         ticketTierId: tier.id,
         eventId: tier.eventId,
         amount: tier.price,
         status: "PENDING",
-        mpesaCheckoutRequestId: result.CheckoutRequestID,
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        checkoutRequestId: result.CheckoutRequestID,
-        orderId: order.id,
-        merchantRequestId: result.MerchantRequestID,
-      },
-    });
+    try {
+      const result = await initiatePayment(getFluxConfig(), {
+        amount: tier.price,
+        phoneNumber: formatFluxPhone(parsed.data.phone),
+        reference: `EVT-${order.id.slice(0, 6)}`,
+        description: tier.name,
+        idempotencyKey: order.id,
+      });
+
+      const checkoutRequestId = (result.data as { checkoutRequestId?: string })
+        ?.checkoutRequestId;
+
+      if (!checkoutRequestId) {
+        throw new Error("FluxPay did not return a checkoutRequestId");
+      }
+
+      await prisma.order.update({
+        where: { id: order.id },
+        data: { mpesaCheckoutRequestId: checkoutRequestId },
+      });
+
+      return NextResponse.json({
+        success: true,
+        data: { checkoutRequestId, orderId: order.id },
+      });
+    } catch (pushError) {
+      // Keep the PENDING order: it is the idempotency anchor for retries.
+      console.error("FluxPay STK push failed", pushError);
+      throw pushError;
+    }
   } catch (error) {
     console.error("/api/mpesa/stk-push error", error);
     return NextResponse.json(

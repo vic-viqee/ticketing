@@ -12,7 +12,8 @@
     "db:generate": "prisma migrate diff --from-url \"$DATABASE_URL\" --to-schema-datamodel prisma/schema.prisma --script > prisma/migrations/000001_init/seed.sql || true",
     "db:push": "prisma db push",
     "db:seed": "npx tsx prisma/seed.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "webhook:register": "npx tsx scripts/register-fluxpay-webhook.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
