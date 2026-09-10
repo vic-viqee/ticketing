@@ -1,62 +1,8 @@
 import { NextResponse } from "next/server";
-import { randomBytes } from "crypto";
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { buildTicketPdfBuffer } from "@/lib/tickets/pdf";
-import { sendTicketEmail } from "@/lib/email";
 import { getFluxWebhookSecret } from "@/lib/fluxpay";
 import { verifyWebhookSignature } from "@/lib/fluxpay/sdk";
-
-type OrderWithRelations = Prisma.OrderGetPayload<{
-  include: { user: true; ticketTier: { include: { event: true } } };
-}>;
-
-async function fulfillPaidOrder(order: OrderWithRelations) {
-  const qrCodeToken = randomBytes(24).toString("hex");
-  await prisma.order.update({
-    where: { id: order.id },
-    data: { status: "PAID", qrCodeToken },
-  });
-
-  await prisma.ticket.create({
-    data: {
-      orderId: order.id,
-      ticketTierId: order.ticketTierId,
-      eventId: order.eventId,
-      userId: order.userId,
-      qrCodeToken,
-    },
-  });
-
-  await prisma.ticketTier.update({
-    where: { id: order.ticketTierId },
-    data: { sold: { increment: 1 } },
-  });
-
-  const pdfBufferRaw = await buildTicketPdfBuffer({
-    attendeeName: order.user.name ?? "Guest",
-    eventName: order.ticketTier.event.title,
-    eventDate: order.ticketTier.event.date.toISOString(),
-    venue: order.ticketTier.event.venue,
-    ticketTier: order.ticketTier.name,
-    qrCodeToken,
-  });
-
-  const pdfBuffer = Buffer.isBuffer(pdfBufferRaw)
-    ? pdfBufferRaw
-    : Buffer.from(
-        (pdfBufferRaw as unknown as ReadableStream).pipeThrough(
-          new TextEncoderStream()
-        ) as unknown as ArrayBuffer
-      );
-
-  await sendTicketEmail({
-    to: order.user.email,
-    attendeeName: order.user.name ?? "Guest",
-    eventName: order.ticketTier.event.title,
-    pdfBuffer,
-  });
-}
+import { fulfillOrder } from "@/lib/fulfillment";
 
 export async function POST(request: Request) {
   try {
@@ -127,7 +73,7 @@ export async function POST(request: Request) {
         include: { user: true, ticketTier: { include: { event: true } } },
       });
       if (updatedOrder) {
-        await fulfillPaidOrder(updatedOrder);
+        await fulfillOrder(updatedOrder);
       }
     } else {
       await prisma.order.update({
