@@ -69,9 +69,10 @@ async function getEventData(eventId: string) {
 export default async function OrganizerEventPage({
   params,
 }: {
-  params: { eventId: string };
+  params: Promise<{ eventId: string }>;
 }) {
-  const data = await getEventData(params.eventId);
+  const { eventId } = await params;
+  const data = await getEventData(eventId);
 
   if (!data) {
     notFound();
