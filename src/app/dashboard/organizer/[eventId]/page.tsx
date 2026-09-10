@@ -1,7 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { getServerSession } from "next-auth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import DeleteEventButton from "./delete-button";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +20,7 @@ type EventDetail = {
   id: string;
   title: string;
   venue: string;
-  date: string;
+  date: Date;
   time: string;
   description: string;
 };
@@ -29,16 +32,38 @@ type EventData = {
 };
 
 async function getEventData(eventId: string) {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const res = await fetch(`${base}/api/organizer/events/${eventId}/attendees`, {
-    cache: "no-store",
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.email) return null;
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email },
   });
-  if (!res.ok) return null;
-  const json = (await res.json()) as {
-    success: boolean;
-    data: EventData | null;
-  };
-  return json.data ?? null;
+  if (!user) return null;
+
+  const event = await prisma.event.findUnique({ where: { id: eventId } });
+  if (!event) return null;
+  if (event.organizerId !== user.id && user.role !== "ADMIN") return null;
+
+  const attendees = await prisma.ticket.findMany({
+    where: { eventId },
+    include: {
+      user: { select: { id: true, name: true, email: true } },
+      ticketTier: true,
+      order: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const ticketsSold = attendees.length;
+  const revenue = attendees.reduce(
+    (sum, ticket) => sum + (ticket.order?.amount ?? 0),
+    0
+  );
+
+  return {
+    event,
+    attendees,
+    stats: { ticketsSold, revenue },
+  } as EventData;
 }
 
 export default async function OrganizerEventPage({

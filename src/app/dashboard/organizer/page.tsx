@@ -1,28 +1,24 @@
 import Link from "next/link";
+import { getServerSession } from "next-auth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-type OrganizerEvent = {
-  id: string;
-  title: string;
-  venue: string;
-  date: string;
-  time: string;
-};
-
 async function getOrganizerEvents() {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const res = await fetch(`${base}/api/organizer/events`, {
-    cache: "no-store",
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.email) return [];
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email },
   });
-  if (!res.ok) return [];
-  const json = (await res.json()) as {
-    success: boolean;
-    data: OrganizerEvent[];
-  };
-  return json.data ?? [];
+  if (!user) return [];
+  return prisma.event.findMany({
+    where: { organizerId: user.id },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, title: true, venue: true, date: true, time: true },
+  });
 }
 
 export default async function OrganizerPage() {
