@@ -7,7 +7,7 @@ import { z } from "zod";
 const eventSchema = z.object({
   title: z.string().min(3),
   description: z.string().min(10),
-  date: z.string().datetime(),
+  date: z.union([z.string().datetime(), z.string().regex(/^\d{4}-\d{2}-\d{2}$/)]),
   time: z.string().min(1),
   venue: z.string().min(2),
   category: z.string().min(2),
