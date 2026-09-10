@@ -2,14 +2,8 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
-
-type TicketWithRelations = {
-  id: string;
-  checkedIn: boolean;
-  event: { title: string };
-  ticketTier: { name: string };
-};
 
 export default async function AttendeeTicketsPage() {
   const session = await getServerSession(authOptions);
@@ -17,25 +11,20 @@ export default async function AttendeeTicketsPage() {
     redirect("/login");
   }
 
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const res = await fetch(`${base}/api/user/tickets`, {
-    cache: "no-store",
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email },
   });
 
-  if (!res.ok) {
-    return (
-      <div>
-        <h2 className="text-xl font-semibold">My Tickets</h2>
-        <p className="mt-2 text-muted-foreground">Failed to load tickets.</p>
-      </div>
-    );
-  }
-
-  const json = (await res.json()) as {
-    success: boolean;
-    data: TicketWithRelations[];
-  };
-  const tickets = json.data ?? [];
+  const tickets = user
+    ? await prisma.ticket.findMany({
+        where: { userId: user.id },
+        include: {
+          event: { select: { title: true } },
+          ticketTier: { select: { name: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      })
+    : [];
 
   return (
     <div>
