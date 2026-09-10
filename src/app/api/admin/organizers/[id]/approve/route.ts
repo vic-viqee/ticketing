@@ -28,8 +28,16 @@ export async function POST(
 
   const { id } = await params;
 
-  const body = await request.json();
-  const { action } = body as { action?: "approve" | "reject" };
+  const contentType = request.headers.get("content-type") ?? "";
+  const isForm = contentType.includes("application/x-www-form-urlencoded");
+  let action: string | undefined;
+  if (isForm) {
+    const form = await request.formData();
+    action = String(form.get("action") ?? "");
+  } else {
+    const body = (await request.json()) as { action?: string };
+    action = body.action;
+  }
 
   if (!action || (action !== "approve" && action !== "reject")) {
     return NextResponse.json(
@@ -61,5 +69,8 @@ export async function POST(
     });
   }
 
+  if (isForm) {
+    return NextResponse.redirect(new URL("/admin", request.url), 303);
+  }
   return NextResponse.json({ success: true });
 }
