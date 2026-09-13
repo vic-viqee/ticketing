@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -91,6 +92,19 @@ export default async function EventPage({
           </div>
         )}
       </header>
+
+      {event.image && (
+        <div className="relative mt-8 aspect-[16/9] w-full overflow-hidden rounded-2xl border border-border">
+          <Image
+            src={event.image}
+            alt={event.title}
+            fill
+            priority
+            className="object-cover"
+            sizes="(min-width: 1024px) 1200px, 100vw"
+          />
+        </div>
+      )}
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_360px]">
         <section>
