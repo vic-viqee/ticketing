@@ -16,12 +16,15 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { BrandMark } from "@/components/brand-mark";
 
 const checkoutSchema = z.object({
   phone: z.string().min(10),
 });
 
 type CheckoutInput = z.infer<typeof checkoutSchema>;
+
+const STEPS = ["Select ticket", "Enter M-Pesa", "Done"];
 
 export default function CheckoutClient() {
   const searchParams = useSearchParams();
@@ -63,19 +66,54 @@ export default function CheckoutClient() {
   if (checkoutRequestId) {
     return (
       <div className="mx-auto max-w-xl px-4 py-8">
-        <Card className="p-6">
-          <p className="text-muted-foreground">Redirecting to payment processing...</p>
+        <Card className="flex items-center gap-3 p-6">
+          <BrandMark className="h-8 w-8 animate-pulse" />
+          <p className="text-muted-foreground">
+            Redirecting to payment processing...
+          </p>
         </Card>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-xl px-4 py-8">
+    <div className="mx-auto max-w-xl px-4 py-10">
+      {/* Stepper */}
+      <ol className="mb-6 flex items-center justify-center gap-2 text-xs">
+        {STEPS.map((step, i) => (
+          <li key={step} className="flex items-center gap-2">
+            <span
+              className={
+                i === 1
+                  ? "flex h-6 w-6 items-center justify-center rounded-full bg-brand font-bold text-white"
+                  : "flex h-6 w-6 items-center justify-center rounded-full bg-muted font-semibold text-muted-foreground"
+              }
+            >
+              {i + 1}
+            </span>
+            <span
+              className={
+                i === 1 ? "font-semibold text-foreground" : "text-muted-foreground"
+              }
+            >
+              {step}
+            </span>
+            {i < STEPS.length - 1 && (
+              <span className="mx-1 h-px w-6 bg-border" aria-hidden="true" />
+            )}
+          </li>
+        ))}
+      </ol>
+
       <Card>
         <CardHeader>
-          <CardTitle>Checkout</CardTitle>
-          <CardDescription>Enter your M-Pesa phone number to pay.</CardDescription>
+          <CardTitle className="font-display text-xl font-bold text-foreground">
+            Checkout
+          </CardTitle>
+          <CardDescription>
+            Enter the M-Pesa number you&apos;ll pay with. An STK push will be
+            sent to your phone.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
@@ -85,17 +123,30 @@ export default function CheckoutClient() {
               </Alert>
             )}
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone number</Label>
-              <Input id="phone" type="tel" {...form.register("phone")} placeholder="254712345678" />
+              <Label htmlFor="phone">M-Pesa phone number</Label>
+              <Input
+                id="phone"
+                type="tel"
+                {...form.register("phone")}
+                placeholder="254712345678"
+                className="h-11 text-base"
+              />
               {form.formState.errors.phone && (
                 <p className="text-sm text-destructive">
                   {form.formState.errors.phone.message}
                 </p>
               )}
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Processing..." : "Pay with M-Pesa"}
+            <Button
+              type="submit"
+              className="h-11 w-full bg-mpesa font-semibold text-white hover:bg-mpesa/90"
+              disabled={isLoading}
+            >
+              {isLoading ? "Sending STK push..." : "Pay with M-Pesa ✓"}
             </Button>
+            <p className="text-center text-xs text-muted-foreground">
+              You&apos;ll receive a prompt on your phone to confirm the payment.
+            </p>
           </form>
         </CardContent>
       </Card>

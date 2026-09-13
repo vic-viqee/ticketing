@@ -1,5 +1,7 @@
 # Kenyan Events Ticketing Platform
 
+![Tikiti — Event Ticketing Platform](./public/screenshots/home.png)
+
 MVP event ticketing web app for the Kenyan market. Browse events, purchase tickets via M-Pesa, receive PDF tickets with QR codes, and check in at events.
 
 ## Tech Stack

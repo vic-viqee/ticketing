@@ -1,21 +1,27 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { EventCard, type EventSummary } from "@/components/event-card";
 
 export const dynamic = "force-dynamic";
 
-type EventSummary = {
-  id: string;
-  title: string;
-  venue: string;
-  date: string;
-  time: string;
-  slug: string;
-};
+const CATEGORIES = [
+  "All",
+  "Music",
+  "Comedy",
+  "Sports",
+  "Arts",
+  "Tech",
+  "Business",
+  "Food",
+  "Other",
+];
 
-async function getEvents() {
+async function getEvents(search: string, category: string) {
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const res = await fetch(`${base}/api/events`, { cache: "no-store" });
+  const params = new URLSearchParams();
+  if (search) params.set("search", search);
+  if (category && category !== "All") params.set("category", category);
+  const res = await fetch(`${base}/api/events?${params}`, { cache: "no-store" });
   const json = (await res.json()) as {
     success: boolean;
     data: EventSummary[];
@@ -23,42 +29,71 @@ async function getEvents() {
   return json.data ?? [];
 }
 
-export default async function EventsPage() {
-  const events = await getEvents();
+export default async function EventsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ search?: string; category?: string }>;
+}) {
+  const { search = "", category = "All" } = await searchParams;
+  const events = await getEvents(search, category);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-semibold">Events</h1>
-        <form className="flex items-center gap-2" method="GET">
-          <input
-            className="rounded-md border px-3 py-2 text-sm"
-            placeholder="Search events..."
-            name="search"
-          />
-          <Button type="submit">Search</Button>
-        </form>
+    <div className="mx-auto max-w-6xl px-4 py-10">
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="font-display text-3xl font-extrabold tracking-tight text-foreground">
+              Events
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {events.length} upcoming event{events.length === 1 ? "" : "s"}
+            </p>
+          </div>
+          <form
+            className="flex items-center gap-2"
+            method="GET"
+            action="/events"
+          >
+            <input
+              className="rounded-lg border border-border bg-card px-3 py-2 text-sm shadow-sm outline-none transition-colors focus:border-brand focus:ring-2 focus:ring-brand/20"
+              placeholder="Search events..."
+              name="search"
+              defaultValue={search}
+            />
+            <Button type="submit" className="bg-brand text-white hover:bg-brand-strong">
+              Search
+            </Button>
+          </form>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {CATEGORIES.map((c) => {
+            const active = category === c;
+            return (
+              <Link
+                key={c}
+                href={{ pathname: "/events", query: c === "All" ? {} : { category: c } }}
+                className={
+                  active
+                    ? "rounded-full bg-brand px-4 py-1.5 text-sm font-semibold text-white"
+                    : "rounded-full border border-border bg-card px-4 py-1.5 text-sm text-muted-foreground transition-colors hover:border-brand hover:text-brand"
+                }
+              >
+                {c}
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-3">
+      <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {events.map((event) => (
-          <Card key={event.id} className="p-4">
-            <div className="flex flex-col gap-2">
-              <div>
-                <h2 className="text-lg font-semibold">{event.title}</h2>
-                <p className="text-sm text-muted-foreground">{event.venue}</p>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {new Date(event.date).toLocaleDateString()} · {event.time}
-              </div>
-              <Button asChild>
-                <Link href={`/events/${event.slug}`}>View</Link>
-              </Button>
-            </div>
-          </Card>
+          <EventCard key={event.id} event={event} />
         ))}
         {events.length === 0 && (
-          <p className="text-muted-foreground">No events found.</p>
+          <div className="col-span-full rounded-2xl border border-dashed border-border bg-muted/40 p-10 text-center text-sm text-muted-foreground">
+            No events match your search yet.
+          </div>
         )}
       </div>
     </div>
